@@ -1,0 +1,3 @@
+[submodule "external"]
+	path = external
+	url = git://github.com/tosutton/CS-3460-X77.git
