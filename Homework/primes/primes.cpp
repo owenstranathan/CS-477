@@ -5,7 +5,7 @@
 
 #include <iostream>
 
-#include "cs477.h"
+#include "../../external/include/cs477.h"
 
 
 
