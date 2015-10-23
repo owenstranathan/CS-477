@@ -5,10 +5,15 @@
 
 #include <iostream>
 #include <vector>
+#include <thread>
+#include <typeinfo>
+
 
 #include "../../external/include/cs477.h"
 
 using namespace cs477;
+
+using namespace std;
 
 bool is_prime(int n)
 {
@@ -23,31 +28,41 @@ bool is_prime(int n)
 
 int main()
 {
-	std::vector<future<int>> fvec;
-	for (int i = 2; i < 100000000; i++)
+	unsigned concurrent_threads = thread::hardware_concurrency();
+	
+	std::vector<future<std::vector<int>>> fvec;
+	for (unsigned i = 1; i <= concurrent_threads ; i++)
 	{
-		cs477::promise<int> prom;
-
-		cs477::queue_work([prom,i]()
+		printf("%d\n", concurrent_threads);
+		fvec.push_back(queue_work([i]() -> std::vector<int>
 		{
-
-			if (is_prime(i))
+			std::vector<int> primes;
+			for (unsigned j = 0; j < 1000000; j+=i)
 			{
-				prom.set(i);
+				if (is_prime(i))
+				{
+					primes.push_back(i);
+				}
 			}
-		});
-		fvec.push_back(prom.get_future());
+			return primes;
+		}));
 	}
 
-	future<std::vector<future<int>>> f = when_all(fvec.begin(), fvec.end());
+	future<std::vector<future<std::vector<int>>>> f = when_all(fvec.begin(), fvec.end());
 
-	std::vector<future<int>> ff = f.get();
+	std::vector<future<std::vector<int>>> ff = f.get();
 
 	for(auto && ftr : ff)
 	{
-		printf("%d", ftr.get());
+		std::vector<int> v = ftr.get();
+		for (auto && i : v)
+		{
+			printf("%d", i);
+		}
 	}
+
+	char i;
+	cin >> i;
 
     return 0;
 }
-
