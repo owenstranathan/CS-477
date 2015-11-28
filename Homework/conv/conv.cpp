@@ -2,9 +2,8 @@
 //
 
 #include "stdafx.h"
-
-#include "cs477.h"
-#include "image.h"
+#include "../../external/include/cs477.h"
+#include "../../external/include/image.h"
 
 
 
@@ -58,8 +57,6 @@ void conv(matrix &x, const matrix &k)
 			x(row, col) = t;
 		}
 	}
-
-
 }
 
 
@@ -88,7 +85,6 @@ matrix binomial(int n)
 
 	for (int i = 0; i < n / 2; i++)
 	{
-
 		x(0, i) = x(0, n - i - 1) = binomial_coefficient(n - 1, i);
 		y(i, 0) = y(n - i - 1, 0) = binomial_coefficient(n - 1, i);
 	}
@@ -104,7 +100,7 @@ matrix binomial(int n)
 
 int main()
 {
-	auto bmp = load_image("C:\\Dev\\2015\\90.jpg");
+	auto bmp = load_image("test.jpg");
 	auto orig = bmp;
 
 	matrix kernel = binomial(9);
@@ -115,7 +111,7 @@ int main()
 	
 	printf("%g\n", to_seconds(start, stop));
 
-	save_png(bmp, "C:\\Dev\\2015\\test.png");
+	save_png(bmp, "test.png");
 
     return 0;
 }
