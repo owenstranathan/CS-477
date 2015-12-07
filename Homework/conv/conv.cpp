@@ -3,6 +3,7 @@
 
 #include "stdafx.h"
 #include <thread>
+#include <future>
 #include <iostream>
 #include "../../external/include/cs477.h"
 #include "../../external/include/image.h"
@@ -10,12 +11,14 @@
 using namespace cs477;
 
 void printm(matrix&);
-void split_matrix(matrix orig, matrix & one, matrix& two);
-matrix join_matrix(matrix & one, matrix & two);
-matrix recursively_convolute(matrix & in, matrix & kernel, unsigned concurrency);
 
-void conv(matrix &x, const matrix &k)
-{
+
+// ******************************************************************************************************* //
+
+//Factored weight and finding y out of convolution algorithm because this only 
+// needs to be done once per image, not on every thread
+
+matrix get_y(matrix & x, const matrix &k) {
 	matrix y;
 	y.create(x.rows + k.rows, x.cols + k.cols);
 
@@ -28,8 +31,10 @@ void conv(matrix &x, const matrix &k)
 			y(yrow, ycol) = x(row, col);
 		}
 	}
+	return y;
+}
 
-	// Compute sum of k for image normalization
+int get_weight(const matrix& k) {
 	int weight = 0;
 	for (unsigned row = 0; row < k.rows; row++)
 	{
@@ -38,11 +43,23 @@ void conv(matrix &x, const matrix &k)
 			weight += k(row, col);
 		}
 	}
+	return weight;
+}
 
+// ******************************************************************************************************* //
+
+
+
+// ******************************************************************************************************* //
+// Modified version of your original convolution algorithm,
+// Takes a weight a y and a starting and ending row
+// basically each thread only works on a small view of the original image
+
+void conv(matrix &x, const matrix &k, const matrix& y, const int weight, int start_row, int stop_row)
+{
 	// Do the convolution
-
 	// for every row in the original image
-	for (unsigned row = 0; row < x.rows; row++)
+	for (unsigned row = start_row; row < x.rows; row++)
 	{
 		// for every pixel in the row
 		for (unsigned col = 0; col < x.cols; col++)
@@ -72,7 +89,9 @@ void conv(matrix &x, const matrix &k)
 	}
 }
 
+// ******************************************************************************************************* //
 
+// UNCHANGED
 int binomial_coefficient(int n, int k)
 {
 	if (n <= 1 || k == 0)
@@ -85,6 +104,7 @@ int binomial_coefficient(int n, int k)
 	}
 }
 
+// UNCHANGED
 matrix binomial(int n)
 {
 	if ((n & 1) == 0)
@@ -109,10 +129,9 @@ matrix binomial(int n)
 }
 
 
-
-
 int main()
 {
+
 	unsigned concurrency = std::thread::hardware_concurrency();
 	auto bmp = load_image("nature.jpg");
 	auto orig = bmp;
@@ -120,83 +139,42 @@ int main()
 	//get dat kernel
 	matrix kernel = binomial(9);
 	printm(kernel);
+	
 
-	// queue up some work son
+	// div size
+	int division_size = bmp.rows / concurrency;
+	
 	auto start = now();
-	bmp = queue_work(recursively_convolute(bmp, kernel, concurrency)).get();
+	
+	matrix y = get_y(bmp, kernel);
+	int weight = get_weight(kernel);
+	
+	std::vector<future<void>> ftrs;
+	for (unsigned i = 0; i < concurrency; ++i) {
+		auto ftr = queue_work([&] {
+			conv(bmp, kernel, y, weight, division_size * i, division_size*(i + 1));
+		});
+		ftrs.push_back(std::move(ftr));
+	}
+
+	// Why is this wrong??
+	// when_all(futures.begin(), futures.end()).get();
+	
+	// Had to do this!!, LAME!
+	for ( auto && ftr : ftrs) {
+		ftr.wait();
+	}
+
 	auto stop = now();
 	printf("%g\n", to_seconds(start, stop));
-	save_png(orig - bmp, "diff.png");
 	save_png(bmp, "nature_blur.png");
 	getchar();
     return 0;
 }
 
-matrix recursively_convolute(matrix & in, matrix & kernel, unsigned concurrency) {
-	if (concurrency <= 1) {
-		conv(in, kernel);
-		return in;
-	}
-	else {
-		concurrency /= 2;
-		matrix first, second;
-		split_matrix(in, first, second);
-		//std::vector<future<matrix>> futes;
-		first = queue_work(recursively_convolute(first, kernel, concurrency)).get();
-		second = queue_work(recursively_convolute(second, kernel, concurrency)).get();
-		in = join_matrix(first, second);
-		return in;
-	}
-}
-
-void split_matrix(matrix orig, matrix & one, matrix& two) {
 
 
-	std::cout << "the original has: " << orig.rows << " rows\n";
 
-	unsigned one_rows = orig.rows / 2;
-
-	std::cout << "one has: " << one_rows << " rows\n";
-	unsigned two_rows = orig.rows - one_rows;
-	std::cout << "two has: " << two_rows << " rows\n";
-
-	std::cout << "There are " << orig.cols << " columns\n";
-	getchar();
-#if 1
-	one.create(one_rows, orig.cols);
-	two.create(two_rows, orig.cols);
-	for (unsigned i = 0; i < one_rows; ++i) {
-		for (unsigned j = 0; j < orig.cols; ++j) {
-			//std::cout << "the value at one(" << i << ", " << j << ") is being set\n";
-			one(i, j) = orig(i, j);
-		}
-	}
-	for (unsigned i = 0; i < two_rows; ++i) {
-		for (unsigned j = 0; j < orig.cols; ++j) {
-			//std::cout << "the value at two(" << i << ", " << j << ") is being set\n";
-			two(i, j) = orig(i + one_rows, j);
-		}
-		//std::cout << i + one_rows<< std::endl;
-	}
-#endif
-}
-
-matrix join_matrix(matrix & one, matrix & two) {
-	matrix ret;
-	assert(one.cols == two.cols);
-	ret.create(one.rows + two.rows, one.cols);
-	for (unsigned i = 0; i < ret.rows; ++i) {
-		for (unsigned j = 0; j < one.cols; ++j) {
-			if (i < one.rows) {
-				ret(i, j) = one(i, j);
-			}
-			else {
-				ret(i, j) = two(i, j);
-			}
-		}
-	}
-	return ret;
-}
 
 void printm(matrix & m) {
 	for (unsigned r = 0; r < m.rows; ++r) {
