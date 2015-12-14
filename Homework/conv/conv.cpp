@@ -151,7 +151,7 @@ int main()
 	
 	std::vector<future<void>> ftrs;
 	for (unsigned i = 0; i < concurrency; ++i) {
-		auto ftr = queue_work([&] {
+		auto ftr = queue_work( [&] {
 			conv(bmp, kernel, y, weight, division_size * i, division_size*(i + 1));
 		});
 		ftrs.push_back(std::move(ftr));
