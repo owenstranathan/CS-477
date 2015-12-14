@@ -1,4 +1,9 @@
 
+/////////////////////////////////////////////////////////////////////////////
+//QUESTION 1 ////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////
+
+
 1.  Parallelize the following algorithms using parallel_for:
 
 a.	Matrix multiplication
@@ -6,31 +11,33 @@ a.	Matrix multiplication
 // NOTE: ANSWER is simple a modification of your code
 matrix operator *(const matrix &x, const matrix &y)
 {
-	if (x.cols != y.rows)
-	{
-		throw std::invalid_argument("Invalid arguments");
-	}
+  if (x.cols != y.rows)
+  {
+    throw std::invalid_argument("Invalid arguments");
+  }
 
-	matrix z;
-	z.create(x.rows, y.cols);
+  matrix z;
+  z.create(x.rows, y.cols);
 
-	// NOTE changes here, I have no memory of you covering parallel_for but according
-	// to msdn this should be correct
-	parallel_for (unsigned(0), x.rows, [&](unsigned i)
-	{
-		for (unsigned j = 0; j < y.cols; j++)
-		{
-			int zz = 0;
-			for (unsigned k = 0; k < x.cols; k++)
-			{
-				zz += x(i, k) * y(k, j);
-			}
+  // NOTE changes here, I have no memory of you covering parallel_for but according
+  // to msdn this should be correct
+  // Ok I see your implementation in algprithm.h now, this is still correct though
 
-			z(i, j) = zz;
-		}
-	});
+  parallel_for (unsigned(0), x.rows, [&](unsigned i)
+  {
+    for (unsigned j = 0; j < y.cols; j++)
+    {
+      int zz = 0;
+      for (unsigned k = 0; k < x.cols; k++)
+      {
+        zz += x(i, k) * y(k, j);
+      }
 
-	return z;
+      z(i, j) = zz;
+    }
+  });
+
+  return z;
 }
 
 b.	Histogram calculations.  Assume values of x are between 0 and 255 (inclusive))
@@ -38,114 +45,228 @@ b.	Histogram calculations.  Assume values of x are between 0 and 255 (inclusive)
 // NOTE ANSWER is simply a modification of your code
 matrix histogram(const matrix &x)
 {
-	matrix h{256, 1};
+  matrix h{256, 1};
 
-	// NOTE addition of call to parallel_for function.
-	parallel_for(unsigned(0), x.rows, [&](unsigned i){
-		for (unsigned j = 0; j < y.cols; j++)
-		{
-			auto value = x(i, j);
+  // NOTE addition of call to parallel_for function.
+  parallel_for(unsigned(0), x.rows, [&](unsigned i){
+    for (unsigned j = 0; j < y.cols; j++)
+    {
+      auto value = x(i, j);
 
-			if (x < 0)
-			{
-				h(0, 0)++;
-			}
-			else if (x >= 255)
-			{
-				h(256, 0)++;
-			}
-			else
-			{
-				h(value, 0)++;
-			}
-		}
-	});
+      if (x < 0)
+      {
+        h(0, 0)++;
+      }
+      else if (x >= 255)
+      {
+        h(256, 0)++;
+      }
+      else
+      {
+        h(value, 0)++;
+      }
+    }
+  });
 
-	return h;
+  return h;
 }
 
+/////////////////////////////////////////////////////////////////////////////
+//QUESTION 2 ////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////
 
 2.	parallel_for uses the queue_work function instead of create_thread.
 
 a.	Why?
 
-	// NOTE: ANSWER
-	The reason parallel_for uses queue_work instead of create_thread is because
-	queue_work sends a task to the threadpool which which is managed by the scheduler
-	this does not nessecarily mean that the task is executed asynchronously. It
-	may execute on its own thread or may just be "queued" to executed on an existing thread
-	This is advantageous since, on windows at least, launching a new thread is not
-	trivially inexpensive, sometimes the benefits of concurrency can be lost on thread
-	thread creation time. Also as we discussed in class, if you queue work to the thread pool
-	at a linear multiple of your hardware concurrency, you can cause over scheduling
-	thus forcing the scheduler to give your process more time on the CPU, causing your
-	code to execute faster. That is not always a good idea however, and is generally a pretty
-	greedy thing to do.
+  // NOTE: ANSWER
+  The reason parallel_for uses queue_work instead of create_thread is because
+  queue_work sends a task to the threadpool which which is managed by the scheduler
+  this does not nessecarily mean that the task is executed asynchronously. It
+  may execute on its own thread or may just be "queued" to executed on an existing thread
+  This is advantageous since, on windows at least, launching a new thread is not
+  trivially inexpensive, sometimes the benefits of concurrency can be lost on
+  thread creation time. Also as we discussed in class, if you queue work to the thread pool
+  at a linear multiple of your hardware concurrency, you can cause over scheduling
+  thus forcing the scheduler to give your process more time on the CPU, causing your
+  code to execute faster. That is not always a good idea however, and is generally a pretty
+  greedy thing to do.
 
 b.	Give an example of when should you use create_thread instead of queue_work
-	to execute work asynchronously?
+  to execute work asynchronously?
 
-	// NOTE: ANSWER
+  // NOTE: ANSWER
+  You would create a thread when you want to spawn a thread to do long
+  running work. For example if the thread will be running for the entire
+  duration of your prgram you wouldnt want to exhaust your thread pool with
+  a task like that. In this case creating and managing your own thread is more
+  efficient.
 
+/////////////////////////////////////////////////////////////////////////////
+//QUESTION 3 ////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////
 
 3.	Consider the following program:
 
 int main()
 {
-	int value = 32;
-	queue_work([&]
-	{
-		value -= 17;
-		printf("%d\n", value);
-	});
-	return value;
+  int value = 32;
+  queue_work([&]
+  {
+    value -= 17;
+    printf("%d\n", value);
+  });
+  return value;
 }
 
 a.  What is the result of this program?  (Hint: its not always the same).
 
+  // NOTE: ANSWER
+  The result of the program is not always the same because the main function will
+  sometimes exit before the asynchronous function exits. So sometimes the function
+  sent to the queue_work function will exit before main, and the value will be 15.
+  Yet other times main will exit before the lambda in queue_work returning 32.
+
 b.  Correct the defect.
 
+  // NOTE: ANSWER
+  int main()
+  {
+    int value = 32;
+    auto ftr = queue_work([&] // HERE WE SET THE FUTURE RETURNED FROM QUEUE WORK
+    {
+      value -= 17;
+      printf("%d\n", value);
+    });
+    ftr.wait() // NOTE THAT WE WAIT FOR THE FUTURE TO COMPLETE
+    return value;
+  }
+
+/////////////////////////////////////////////////////////////////////////////
+//QUESTION 4 ////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////
 
 4.  Consider the following program:
 
 // Image processing pipeline
 concurrent_queue<matrix> pipeline;
 
-future<matrix> blur_image_async(matrix x);
+// NOTE: ANSWER to 4a
+// Just assume binomial and get_y and get_weight all exist somewhere in
+// scope
+
+void conv(matrix &x, const matrix &k, const matrix& y, const int weight, int start_row, int stop_row)
+{
+  // Do the convolution
+  // for every row in the original image
+  for (unsigned row = start_row; row < x.rows; row++)
+  {
+    // for every pixel in the row
+    for (unsigned col = 0; col < x.cols; col++)
+    {
+      int t = 0;
+
+
+      auto yrow = row - k.rows / 2 + 1;
+      for (int krow = k.rows - 1; krow >= 0; krow--, yrow++)
+      {
+        auto ycol = col - k.cols / 2 + 1;
+        for (int kcol = k.cols - 1; kcol >= 0; kcol--, ycol++)
+        {
+          t += y(yrow, ycol) * k(krow, kcol);
+        }
+      }
+
+      // perform normalization
+      if (weight != 0)
+      {
+        t /= weight;
+      }
+
+      x(row, col) = t;
+    }
+  }
+}
+
+
+future<void> blur_image_async(matrix x)
+{
+  std::vector<future<void>> ftrs;
+  unsigned concurrency = std::thread::hardware_concurrency();
+  int division_size = bmp.rows / concurrency;
+  auto kernel = binomial(9);
+  auto y = get_y(x, kernel);
+  auto weight = get_weight(kernel);
+  for (unsigned i = 0; i < concurrency; ++i) {
+    auto ftr = queue_work([&] {
+      conv(bmp, kernel, y, weight, division_size * i, division_size*(i + 1));
+    });
+    ftrs.push_back(std::move(ftr));
+  }
+  return when_all(ftrs.begin(), ftrs.end());
+}
 
 int main()
 {
-	// Start the pipeline.
-	auto pipeline_thread = create_thread([]
-	{
-		for (;;)
-		{
-			auto x = pipeline.pop();
-			auto h = histogram(x);
+  // Start the pipeline.
+  auto pipeline_thread = create_thread([]
+  {
+    for (;;)
+    {
+      auto x = pipeline.pop();
+      auto y = blur_image_async(std::move(x)).then([]() {
+        auto h = histogram(y);//moved h into continuation
+      });
+    }
+  });
 
-			// TODO: I have to do something with h, but what?
-		}
-	});
 
-
-	auto x = load_image("image.png");
-	auto y = blur_image_async(std::move(x)).get();
-
-	// Never exits
-	join(pipeline_thread);
-	return 0;
+  auto x = load_image_async("image.png").then([&](){
+    pipeline.push_back(x);
+  });
+  // Never exits
+  join(pipeline_thread);
+  return 0;
 }
 
 a.	Implement blur_image_async using the pipeline.
-	Note: use the convolution algorithm from your homework to blur the image.
-	Hint: You may need to modify what goes into the pipeline.
+  Note: use the convolution algorithm from your homework to blur the image.
+  Hint: You may need to modify what goes into the pipeline.
+
+
 
 b.	Modify the program to
-	1. Load the image (x) asynchronously with load_image_async
-	2. and compute the histogram of y (see question 1) using a continuation.
+  1. Load the image (x) asynchronously with load_image_async
+  2. and compute the histogram of y (see question 1) using a continuation.
+
+
+/////////////////////////////////////////////////////////////////////////////
+//QUESTION 5 ////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////
 
 
 5a.	How does a semaphore differ from mutex?
 
+  // NOTE: ANSWER
+
+  A semaphore is really only an interproccess mutex with the only real difference
+  being that it can allow a number > 1 threads or processes to access a single resource.
+  obviously the resource must be subdivided but still it allows more than one process
+  or thread to access the the resource at once.
+
 5b. Describe the operation of a bar (sitting down, ordering a drink) in terms
-	of a semaphore and mutex.
+  of a semaphore and mutex.
+
+  // NOTE: ANSWER
+
+  A bar with a mutex is like a bar with one stool. A drinker comes to the bar and
+  sees a single empty stool. Then he sits and orders a drink, another drinker comes in
+  and sees that the only seat is taken and waits. When the first drinker finishes
+  the second drinker sits down and does his biz at the bar. This pattern continues
+  so long as there is contention for the single bar stool.
+
+  A bar with a semaphore however is like a bar with N stools. When the first drinker
+  comes in he sits and drinks, as does the second and third all the way to the Nth
+  drinker. When the bar is full the N+1th drinker waits untill there is an open stool
+  then he sits and does his biz. This pattern continues so long as there are drinkers
+  who want to drink at this bar. 
