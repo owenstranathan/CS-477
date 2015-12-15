@@ -81,8 +81,8 @@ a.	Why?
 
   // NOTE: ANSWER
   The reason parallel_for uses queue_work instead of create_thread is because
-  queue_work sends a task to the threadpool which which is managed by the scheduler
-  this does not nessecarily mean that the task is executed asynchronously. It
+  queue_work sends a task to the thread pool which which is managed by the scheduler
+  this does not necessarily mean that the task is executed asynchronously. It
   may execute on its own thread or may just be "queued" to executed on an existing thread
   This is advantageous since, on windows at least, launching a new thread is not
   trivially inexpensive, sometimes the benefits of concurrency can be lost on
@@ -92,15 +92,20 @@ a.	Why?
   code to execute faster. That is not always a good idea however, and is generally a pretty
   greedy thing to do.
 
+  With that said, parallel_for queue's work to the thread pool because it is more thread
+  safe than spawning a new thread for every iteration of the loop. Further more
+  independent threads should really only be created for long running tasks, which
+  a single or even multiple iterations of a loop is/are not.
+
 b.	Give an example of when should you use create_thread instead of queue_work
   to execute work asynchronously?
 
   // NOTE: ANSWER
   You would create a thread when you want to spawn a thread to do long
   running work. For example if the thread will be running for the entire
-  duration of your prgram you wouldnt want to exhaust your thread pool with
-  a task like that. In this case creating and managing your own thread is more
-  efficient.
+  duration of your program, like a thread that handles only IO, you wouldn't
+  want to exhaust your thread pool with a task like that. In this case creating
+  and managing your own thread is more efficient.
 
 /////////////////////////////////////////////////////////////////////////////
 //QUESTION 3 ////////////////////////////////////////////////////////////////
@@ -269,4 +274,4 @@ b.	Modify the program to
   comes in he sits and drinks, as does the second and third all the way to the Nth
   drinker. When the bar is full the N+1th drinker waits untill there is an open stool
   then he sits and does his biz. This pattern continues so long as there are drinkers
-  who want to drink at this bar. 
+  who want to drink at this bar.

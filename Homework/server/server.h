@@ -5,7 +5,6 @@
 
 #include "../../external/include/cs477.h"
 #include "../../external/include/queue.h"
-#include "../../external/include/data.h"
 #include "../../external/include/net.h"
 #include "../../external/include/http.h"
 #include "../../external/include/file.h"

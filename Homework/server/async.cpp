@@ -6,11 +6,10 @@
 #include <string>
 #include <algorithm>
 
-std::string windowsify_path(std::string path) { return  ""; }
 
 namespace async
 {
-
+	std::string base_dir = "C:\\server\\";
 	void socket_handler(cs477::net::socket sock)
 	{
 
@@ -23,15 +22,15 @@ namespace async
 			std::string path = rq.url;
 			// because windows
 			std::replace(path.begin(), path.end(), '/', '\\'); // replace all '/' to '\\'
-
+			path = base_dir + path;
 			try {
 				cs477::read_file_async(path.c_str()).then([sock](auto f) {
 					std::string body = f.get();
-					cs477::net::write_http_response_async(sock, make_response(200, body, "text/plain"));
+					cs477::net::write_http_response_async(sock, make_response(200, body, "text/html"));
 				});
 			}
 			catch (...) {
-				cs477::net::write_http_response_async(sock, make_response(404, "File not found", "text/plain"));
+				cs477::net::write_http_response_async(sock, make_response(404, "File not found", "text/html"));
 			}
 			return 0;
 		});
@@ -43,6 +42,7 @@ namespace async
 		auto host = std::make_shared<cs477::net::acceptor>();
 		host->listen(addr);
 		printf("Wubalubadubdub!");
+		printf("Go to localhost:8080/ in microsoft edge, \nyou will get a 404 since there are not files on the server");
 		for (int i = 0; i < 32; i++)
 		{
 			host->accept_async(socket_handler);
