@@ -2,10 +2,15 @@
 #include "stdafx.h"
 
 #include "server.h"
+#include <cstdio>
+#include <string>
+#include <algorithm>
 
+std::string windowsify_path(std::string path) { return  ""; }
 
 namespace async
 {
+
 	void socket_handler(cs477::net::socket sock)
 	{
 
@@ -13,45 +18,31 @@ namespace async
 		auto f = cs477::net::read_http_request_async(sock).then([sock](auto f)
 		{
 			auto rq = f.get();
+			
+			// Get the path of the file requested
+			std::string path = rq.url;
+			// because windows
+			std::replace(path.begin(), path.end(), '/', '\\'); // replace all '/' to '\\'
 
-			int status = 200;
-			std::string result;
-
-			// Dispatch request to database
-			//if (rq.method == "GET")
-			//{
-			//	auto stmt = make_query(*db, rq);
-			//	result = stmt.execute_query();
-			//}
-			//else if (rq.method == "POST")
-			//{
-			//	auto stmt = make_insert(*db, rq);
-			//	stmt.execute();
-			//}
-			//else if (rq.method == "DELETE")
-			//{
-			//	auto stmt = make_delete(*db, rq);
-			//	stmt.execute();
-			//}
-			//else
-			//{
-			//	status = 404;
-			//}
-
-			// Write the response
-			auto rsp = make_response(200, {});
-			cs477::net::write_http_response_async(sock, rsp);
-
+			try {
+				cs477::read_file_async(path.c_str()).then([sock](auto f) {
+					std::string body = f.get();
+					cs477::net::write_http_response_async(sock, make_response(200, body, "text/plain"));
+				});
+			}
+			catch (...) {
+				cs477::net::write_http_response_async(sock, make_response(404, "File not found", "text/plain"));
+			}
 			return 0;
 		});
 	}
 
 
-	void run(const sockaddr_in &addr, std::shared_ptr<cs477::data::database> db)
+	void run(const sockaddr_in &addr)
 	{
 		auto host = std::make_shared<cs477::net::acceptor>();
 		host->listen(addr);
-
+		printf("Wubalubadubdub!");
 		for (int i = 0; i < 32; i++)
 		{
 			host->accept_async(socket_handler);
