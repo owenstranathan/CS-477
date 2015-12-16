@@ -153,6 +153,15 @@ b.  Correct the defect.
 
 4.  Consider the following program:
 
+struct matrixAndPromise{
+  matrix m;
+  promise<matrix> p;
+
+  martixAndPromise(matrix mat, promise<matrix> prom)
+  : m(mat), p(prom)
+  {}
+};
+
 // Image processing pipeline
 concurrent_queue<matrix> pipeline;
 
@@ -160,55 +169,16 @@ concurrent_queue<matrix> pipeline;
 // Just assume binomial and get_y and get_weight all exist somewhere in
 // scope
 
-void conv(matrix &x, const matrix &k, const matrix& y, const int weight, int start_row, int stop_row)
+void conv(matrix& x);
+
+
+future<matrix> blur_image_async(matrix& x)
 {
-  // Do the convolution
-  // for every row in the original image
-  for (unsigned row = start_row; row < x.rows; row++)
-  {
-    // for every pixel in the row
-    for (unsigned col = 0; col < x.cols; col++)
-    {
-      int t = 0;
 
-
-      auto yrow = row - k.rows / 2 + 1;
-      for (int krow = k.rows - 1; krow >= 0; krow--, yrow++)
-      {
-        auto ycol = col - k.cols / 2 + 1;
-        for (int kcol = k.cols - 1; kcol >= 0; kcol--, ycol++)
-        {
-          t += y(yrow, ycol) * k(krow, kcol);
-        }
-      }
-
-      // perform normalization
-      if (weight != 0)
-      {
-        t /= weight;
-      }
-
-      x(row, col) = t;
-    }
-  }
-}
-
-
-future<void> blur_image_async(matrix x)
-{
-  std::vector<future<void>> ftrs;
-  unsigned concurrency = std::thread::hardware_concurrency();
-  int division_size = bmp.rows / concurrency;
-  auto kernel = binomial(9);
-  auto y = get_y(x, kernel);
-  auto weight = get_weight(kernel);
-  for (unsigned i = 0; i < concurrency; ++i) {
-    auto ftr = queue_work([&] {
-      conv(bmp, kernel, y, weight, division_size * i, division_size*(i + 1));
-    });
-    ftrs.push_back(std::move(ftr));
-  }
-  return when_all(ftrs.begin(), ftrs.end());
+  promise<matrix> p;
+  matrixAndPromise m_and_p(x,p);
+  pipline.push(m_and_p);
+  return p.get_future();
 }
 
 int main()
@@ -219,16 +189,20 @@ int main()
     for (;;)
     {
       auto x = pipeline.pop();
-      auto y = blur_image_async(std::move(x)).then([]() {
-        auto h = histogram(y);//moved h into continuation
-      });
+      auto mat = x.m;
+      conv(mat);
+      p.set(mat);
     }
   });
 
 
-  auto x = load_image_async("image.png").then([&](){
-    pipeline.push_back(x);
+  auto x = load_image_async("image.png").then([&]{
+    auto y = blur_image_async(x).then([&]{
+      auto h = histogram(y);
+    });
+
   });
+
   // Never exits
   join(pipeline_thread);
   return 0;
