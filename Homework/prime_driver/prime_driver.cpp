@@ -15,6 +15,7 @@ std::ostream& operator<<(std::ostream& o, std::array<int, PRIMES_RANGE> arr) {
 	for (auto && element : arr) {
 		o << element << ", ";
 	}
+	return o;
 }
 
 int main()
@@ -24,7 +25,7 @@ int main()
 	driver_send_queue = std::make_shared<bounded_queue<int, NUM_PRIMES / PRIMES_RANGE>>();
 	driver_send_queue->create("driver_send_queue");
 
-	driver_recieve_queue = std::make_shared<bounded_queue<int[1000], NUM_PRIMES / PRIMES_RANGE>>();
+	driver_recieve_queue = std::make_shared<bounded_queue<std::array<int, PRIMES_RANGE>, NUM_PRIMES / PRIMES_RANGE>>();
 	driver_recieve_queue->create("driver_recieve_queue");
 
 	for (int i = 0; i < NUM_PRIMES; i+=PRIMES_RANGE) {

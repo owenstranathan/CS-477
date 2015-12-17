@@ -9,7 +9,7 @@
 
 //std::shared_ptr<cs477::shm_pool> mem_pool;
 std::shared_ptr<cs477::bounded_queue<int, NUM_PRIMES / PRIMES_RANGE>> driver_send_queue;
-std::shared_ptr<cs477::bounded_queue< std::array<int, PRIMES_RANGE>, NUM_PRIMES / PRIMES_RANGE>> driver_recieve_queue;
+std::shared_ptr<cs477::bounded_queue<std::array<int, PRIMES_RANGE>, NUM_PRIMES / PRIMES_RANGE>> driver_recieve_queue;
 
 using future_of_vector_of_ints = cs477::future<std::vector<int>>;
 
@@ -62,10 +62,10 @@ int main()
 	using namespace cs477;
 
 
-	driver_send_queue = std::make_shared<bounded_queue<std::tuple<int, int>, NUM_PRIMES / PRIMES_RANGE>>();
+	driver_send_queue = std::make_shared<bounded_queue<int, NUM_PRIMES / PRIMES_RANGE>>();
 	driver_send_queue->create("driver_send_queue");
 
-	driver_recieve_queue = std::make_shared<bounded_queue<int[1000], NUM_PRIMES / PRIMES_RANGE>>();
+	driver_recieve_queue = std::make_shared<bounded_queue<std::array<int, PRIMES_RANGE>, NUM_PRIMES / PRIMES_RANGE>>();
 	driver_recieve_queue->create("driver_recieve_queue");
 
 
@@ -73,7 +73,7 @@ int main()
 		int start = driver_send_queue->read();
 		auto primes = find_primes_on_range_async(start, PRIMES_RANGE);
 		std::array<int, PRIMES_RANGE> return_array;
-		std::copy(primes.begin(), primes.end(), return_array);
+		std::copy(primes.begin(), primes.end(), return_array.begin());
 		driver_recieve_queue->write(return_array);
 	}
 
